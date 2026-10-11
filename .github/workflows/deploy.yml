@@ -32,28 +32,47 @@ jobs:
 
       - name: Get GitHub Runner Public IP
         id: ip
-        run: echo "ipv4=$(curl -s https://api.ipify.org)" >> $GITHUB_OUTPUT
+        run: echo "ipv4=(curl -s https://api.ipify.org)" >> GITHUB_OUTPUT
 
-      - name: Verify PostgreSQL is reachable from runner
+      - name: Verify PostgreSQL is reachable via EC2 Tunnel
         env:
-          PGHOST: ${{ secrets.PG_HOST }}
-          PGPORT: 5432
+          PGHOST: 127.0.0.1
+          PGPORT: 5433
           PGUSER: ${{ secrets.PG_USER }}
           PGPASSWORD: ${{ secrets.PG_PASSWORD }}
           PGDATABASE: ${{ secrets.PG_DATABASE }}
+          BASTION_HOST: ${{ secrets.EC2_HOST }}
+          BASTION_USER: ${{ secrets.EC2_USERNAME }}
+          BASTION_KEY: ${{ secrets.SSH_KEY }}
+          RDS_DNS: ekameva-database-0-instance-1.c10uiu8660i0.eu-north-1.rds.amazonaws.com
         run: |
           set -euo pipefail
-          if [ -z "${PGHOST:-}" ]; then
-            echo "PG_HOST secret is not set; skipping pre-flight check."
-            exit 0
-          fi
-          if command -v psql >/dev/null 2>&1; then
-            PGPASSWORD="$PGPASSWORD" psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" \
-              -c 'SELECT 1' >/dev/null
-            echo "Database reachable."
+          
+          echo "Installing PostgreSQL client utilities..."
+          sudo apt-get update && sudo apt-get install -y postgresql-client
+          
+          echo "Setting up secure deployment SSH identity keys..."
+          mkdir -p ~/.ssh
+          echo "$BASTION_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "$BASTION_HOST" >> ~/.ssh/known_hosts
+
+          echo "Opening background SSH tunnel to target RDS endpoint..."
+          nohup ssh -i ~/.ssh/id_rsa -N -L 5433:$RDS_DNS:5432 (BASTION_USER@)BASTION_HOST &
+          TUNNEL_PID=$!
+          sleep 4
+
+          echo "Executing pre-flight health query check against tunnel loop..."
+          if PGPASSWORD="$PGPASSWORD" psql -h "PGHOST" -p "PGPORT" -U "PGUSER" -d "PGDATABASE" -c 'SELECT 1' >/dev/null; then
+            echo "Database layer connectivity verified successfully."
           else
-            echo "psql not installed on runner; skipping check."
+            echo "Database connection failed over open tunnel link!"
+            kill $TUNNEL_PID
+            exit 1
           fi
+
+          echo "Closing local transient test tunnel bridge..."
+          kill $TUNNEL_PID
 
       - name: Configure SSH
         uses: appleboy/ssh-action@v1
@@ -67,7 +86,7 @@ jobs:
         env:
           APP_DIR: ${{ secrets.EC2_APP_DIR }}
           BRANCH: ${{ github.event.inputs.branch || 'main' }}
-          REPO_URL: ${{ github.server_url }}/${{ github.repository }}.git
+          REPO_URL: ({{ github.server_url }}){{ github.repository }}.git
           PORT: ${{ vars.APP_PORT || '3000' }}
 
       - name: Verify deployment
@@ -79,9 +98,9 @@ jobs:
           port: 22
           script: |
             set -euo pipefail
-            cd "${APP_DIR:-$HOME/member-registration-app}"
+            cd "({APP_DIR:-)HOME/member-registration-app}"
             pm2 describe member-registration-app >/dev/null
-            curl -fsS --max-time 10 "http://127.0.0.1:${PORT:-3000}/health"
+            curl -fsS --max-time 10 "http://127.0.0.1:\${PORT:-3000}/health"
             echo
 
       - name: Summary
@@ -92,7 +111,7 @@ jobs:
             echo ""
             echo "| Item | Value |"
             echo "| --- | --- |"
-            echo "| Host | \`${{ secrets.EC2_HOST }}\` |"
-            echo "| Commit | \`${{ github.sha }}\` |"
+            echo "| Host | `${{ secrets.EC2_HOST }}` |"
+            echo "| Commit | `${{ github.sha }}` |"
             echo "| Result | ${{ job.status }} |"
           } >> "$GITHUB_STEP_SUMMARY"
