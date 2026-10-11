@@ -53,27 +53,29 @@ jobs:
           
           echo "Setting up secure deployment SSH identity keys..."
           mkdir -p ~/.ssh
+          # Added double quotes around BASTION_KEY to prevent shell splitting on newlines
           echo "$BASTION_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H "$BASTION_HOST" >> ~/.ssh/known_hosts
 
           echo "Opening background SSH tunnel to target RDS endpoint..."
-          nohup ssh -i ~/.ssh/id_rsa -N -L 5433:$RDS_DNS:5432 (BASTION_USER@)BASTION_HOST &
+          # Cleaned up the connection string syntax
+          nohup ssh -i ~/.ssh/id_rsa -N -L 5433:$RDS_DNS:5432 $BASTION_USER@$BASTION_HOST &
           TUNNEL_PID=$!
-          sleep 4
+          sleep 5
 
           echo "Executing pre-flight health query check against tunnel loop..."
-          if PGPASSWORD="$PGPASSWORD" psql -h "PGHOST" -p "PGPORT" -U "PGUSER" -d "PGDATABASE" -c 'SELECT 1' >/dev/null; then
+          if PGPASSWORD="$PGPASSWORD" psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -c 'SELECT 1' >/dev/null; then
             echo "Database layer connectivity verified successfully."
           else
             echo "Database connection failed over open tunnel link!"
-            kill $TUNNEL_PID
+            kill $TUNNEL_PID || true
             exit 1
           fi
 
           echo "Closing local transient test tunnel bridge..."
-          kill $TUNNEL_PID
-
+          kill $TUNNEL_PID || true
+          
       - name: Configure SSH
         uses: appleboy/ssh-action@v1
         with:
