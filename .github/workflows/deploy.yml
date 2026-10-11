@@ -37,7 +37,7 @@ jobs:
       - name: Verify PostgreSQL is reachable from runner
         env:
           PGHOST: ${{ secrets.PG_HOST }}
-          PGPORT: ${{ secrets.PG_PORT }}
+          PGPORT: 5432
           PGUSER: ${{ secrets.PG_USER }}
           PGPASSWORD: ${{ secrets.PG_PASSWORD }}
           PGDATABASE: ${{ secrets.PG_DATABASE }}
