@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in · Member Registry</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="auth-body">
+  <main class="auth">
+    <div class="auth__brand">
+      <span class="brand__mark">MR</span>
+      <h1 class="auth__title">Member Registry</h1>
+      <p class="auth__subtitle">Sign in to register and manage members.</p>
+    </div>
+
+    <div class="card auth__card">
+      <% if (error) { %>
+        <div class="alert alert--error" role="alert"><%= error %></div>
+      <% } %>
+
+      <form method="post" action="/login" novalidate class="form">
+        <input type="hidden" name="next" value="<%= next %>">
+
+        <div class="field">
+          <label class="field__label" for="username">Username</label>
+          <input class="field__input" id="username" name="username" type="text"
+                 value="<%= values.username %>" autocomplete="username" required autofocus>
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="password">Password</label>
+          <input class="field__input" id="password" name="password" type="password"
+                 autocomplete="current-password" required>
+        </div>
+
+        <button class="btn btn--primary btn--block" type="submit">Sign in</button>
+      </form>
+
+      <div class="auth__hint">
+        <p class="auth__hint-title">Demo accounts</p>
+        <ul>
+          <li><code>admin</code> / <code>admin123</code></li>
+          <li><code>registrar</code> / <code>registrar123</code></li>
+        </ul>
+      </div>
+    </div>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

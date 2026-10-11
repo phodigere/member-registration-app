@@ -1,0 +1,94 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to deploy'
+        required: false
+        default: 'main'
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
+          fetch-depth: 0
+
+      - name: Verify PostgreSQL is reachable from runner
+        env:
+          PGHOST: ${{ secrets.PG_HOST }}
+          PGPORT: ${{ secrets.PG_PORT }}
+          PGUSER: ${{ secrets.PG_USER }}
+          PGPASSWORD: ${{ secrets.PG_PASSWORD }}
+          PGDATABASE: ${{ secrets.PG_DATABASE }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PGHOST:-}" ]; then
+            echo "PG_HOST secret is not set; skipping pre-flight check."
+            exit 0
+          fi
+          if command -v psql >/dev/null 2>&1; then
+            PGPASSWORD="$PGPASSWORD" psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" \
+              -c 'SELECT 1' >/dev/null
+            echo "Database reachable."
+          else
+            echo "psql not installed on runner; skipping check."
+          fi
+
+      - name: Configure SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.EC2_SSH_PORT }}
+          envs: 'APP_DIR,BRANCH,REPO_URL,PORT'
+          script_path: scripts/deploy.sh
+        env:
+          APP_DIR: ${{ secrets.EC2_APP_DIR }}
+          BRANCH: ${{ github.event.inputs.branch || 'main' }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}.git
+          PORT: ${{ vars.APP_PORT || '3000' }}
+
+      - name: Verify deployment
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.EC2_SSH_PORT }}
+          script: |
+            set -euo pipefail
+            cd "${APP_DIR:-$HOME/member-registration-app}"
+            pm2 describe member-registration-app >/dev/null
+            curl -fsS --max-time 10 "http://127.0.0.1:${PORT:-3000}/health"
+            echo
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Deployment"
+            echo ""
+            echo "| Item | Value |"
+            echo "| --- | --- |"
+            echo "| Host | \`${{ secrets.EC2_HOST }}\` |"
+            echo "| Commit | \`${{ github.sha }}\` |"
+            echo "| Result | ${{ job.status }} |"
+          } >> "$GITHUB_STEP_SUMMARY"

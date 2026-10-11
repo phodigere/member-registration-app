@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= title %> · Member Registry</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar__inner">
+      <a class="brand" href="/members">
+        <span class="brand__mark">MR</span>
+        <span class="brand__text">Member Registry</span>
+      </a>
+      <nav class="nav">
+        <a class="nav__link" href="/members">Directory</a>
+        <a class="nav__link" href="/members/register">Register member</a>
+        <div class="nav__user">
+          <span class="nav__username"><%= currentUser ? currentUser.username : 'guest' %></span>
+          <form method="post" action="/logout">
+            <button class="btn btn--ghost btn--sm" type="submit">Sign out</button>
+          </form>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="page-head">
+      <div>
+        <h1 class="page-title">Members</h1>
+        <p class="page-sub">Register new members and browse the directory.</p>
+      </div>
+      <a class="btn btn--primary" href="/members/register">+ Register member</a>
+    </div>
+
+    <% if (flash) { %>
+      <div class="alert alert--<%= flash.type %>" role="status"><%= flash.message %></div>
+    <% } %>
+
+    <section class="card" id="register-panel" <%= openForm ? '' : 'hidden' %>>
+      <h2 class="card__title">Registration form</h2>
+      <p class="card__sub">Name, phone number and institution are required.</p>
+
+      <form method="post" action="/members/register" novalidate class="form form--grid" id="member-form">
+        <div class="field">
+          <label class="field__label" for="name">Name <span class="req">*</span></label>
+          <input class="field__input <%= errors && errors.name ? 'is-invalid' : '' %>" id="name" name="name" type="text"
+                 value="<%= formValues.name || '' %>" placeholder="Ada Lovelace" required>
+          <% if (errors && errors.name) { %><p class="field__error"><%= errors.name %></p><% } %>
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="phone_number">Phone Number <span class="req">*</span></label>
+          <input class="field__input <%= errors && errors.phone_number ? 'is-invalid' : '' %>" id="phone_number" name="phone_number" type="tel"
+                 value="<%= formValues.phone_number || '' %>" placeholder="+91 98765 43210" required>
+          <% if (errors && errors.phone_number) { %><p class="field__error"><%= errors.phone_number %></p><% } %>
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="institution">Institution <span class="req">*</span></label>
+          <input class="field__input <%= errors && errors.institution ? 'is-invalid' : '' %>" id="institution" name="institution" type="text"
+                 value="<%= formValues.institution || '' %>" placeholder="University of Delhi" required>
+          <% if (errors && errors.institution) { %><p class="field__error"><%= errors.institution %></p><% } %>
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="email">Email Address <span class="opt">optional</span></label>
+          <input class="field__input <%= errors && errors.email ? 'is-invalid' : '' %>" id="email" name="email" type="email"
+                 value="<%= formValues.email || '' %>" placeholder="ada@example.com">
+          <% if (errors && errors.email) { %><p class="field__error"><%= errors.email %></p><% } %>
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="social_media">Social Media Account <span class="opt">optional</span></label>
+          <input class="field__input <%= errors && errors.social_media ? 'is-invalid' : '' %>" id="social_media" name="social_media" type="text"
+                 value="<%= formValues.social_media || '' %>" placeholder="@ada or https://linkedin.com/in/ada">
+          <% if (errors && errors.social_media) { %><p class="field__error"><%= errors.social_media %></p><% } %>
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="tags">Tags <span class="opt">optional</span></label>
+          <input class="field__input" id="tags" name="tags" type="text"
+                 value="<%= (formValues.tags || []).join(', ') %>" placeholder="alumni, volunteer, 2026">
+          <p class="field__hint">Comma-separated, up to 10 tags.</p>
+        </div>
+
+        <div class="form__actions">
+          <button class="btn btn--primary" type="submit" id="submit-btn">Register member</button>
+          <a class="btn btn--ghost" href="/members">Reset</a>
+        </div>
+      </form>
+    </section>
+
+    <section class="toolbar">
+      <form method="get" action="/members" class="toolbar__form">
+        <input class="field__input" type="search" name="search" placeholder="Search name, institution, email&hellip;"
+               value="<%= filters.search %>">
+        <select class="field__input" name="sort">
+          <option value="newest"   <%= filters.sort === 'newest'   ? 'selected' : '' %>>Newest first</option>
+          <option value="oldest"   <%= filters.sort === 'oldest'   ? 'selected' : '' %>>Oldest first</option>
+          <option value="name"     <%= filters.sort === 'name'     ? 'selected' : '' %>>Name (A–Z)</option>
+          <option value="institution" <%= filters.sort === 'institution' ? 'selected' : '' %>>Institution</option>
+        </select>
+        <select class="field__input" name="institution">
+          <option value="">All institutions</option>
+          <% institutions.forEach(function (inst) { %>
+            <option value="<%= inst %>" <%= filters.institution === inst ? 'selected' : '' %>><%= inst %></option>
+          <% }); %>
+        </select>
+        <button class="btn btn--soft" type="submit">Apply</button>
+      </form>
+      <span class="toolbar__count"><%= members.length %> member(s)</span>
+    </section>
+
+    <section class="card card--flush">
+      <% if (members.length === 0) { %>
+        <p class="empty">No members found. Use the form above to register the first one.</p>
+      <% } else { %>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Phone Number</th>
+            <th>Institution</th>
+            <th>Email</th>
+            <th>Social Media</th>
+            <th>Tags</th>
+            <th>Registered</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% members.forEach(function (m) { %>
+            <tr>
+              <td class="table__id"><%= m.id %></td>
+              <td class="table__name"><%= m.name %></td>
+              <td><a href="tel:<%= m.phone_number.replace(/\s/g, '') %>"><%= m.phone_number %></a></td>
+              <td><%= m.institution %></td>
+              <td><% if (m.email) { %><a href="mailto:<%= m.email %>"><%= m.email %></a><% } else { %><span class="muted">—</span><% } %></td>
+              <td><% if (m.social_media) { %><%= m.social_media %><% } else { %><span class="muted">—</span><% } %></td>
+              <td class="table__tags">
+                <% (m.tags || []).forEach(function (tag) { %>
+                  <span class="tag"><%= tag %></span>
+                <% }); %>
+              </td>
+              <td class="muted"><%= new Date(m.created_at).toLocaleDateString() %></td>
+              <td>
+                <form method="post" action="/members/<%= m.id %>/delete" class="inline-form"
+                      onsubmit="return confirm('Remove <%= m.name %>?')">
+                  <button class="btn btn--danger btn--sm" type="submit">Delete</button>
+                </form>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+      <% } %>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>Member Registry · Node.js + Express + PostgreSQL</span>
+    <span class="footer__health" id="db-health">checking…</span>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>
