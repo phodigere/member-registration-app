@@ -34,6 +34,21 @@ jobs:
         id: ip
         run: echo "ipv4=(curl -s https://api.ipify.org)" >> GITHUB_OUTPUT
 
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-north-1  # Based on your EC2 host region
+
+      - name: Open EC2 Firewall to GitHub Runner
+        run: |
+          aws ec2 authorize-security-group-ingress \
+            --group-id ${{ secrets.EC2_SECURITY_GROUP_ID }} \
+            --protocol tcp \
+            --port 22 \
+            --cidr ${{ steps.ip.outputs.ipv4 }}/32
+
       - name: Verify PostgreSQL is reachable via EC2 Tunnel
         env:
           PGHOST: 127.0.0.1
