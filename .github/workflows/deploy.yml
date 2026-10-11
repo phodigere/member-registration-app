@@ -46,36 +46,43 @@ jobs:
           BASTION_KEY: ${{ secrets.SSH_KEY }}
           RDS_DNS: ekameva-database-0-instance-1.c10uiu8660i0.eu-north-1.rds.amazonaws.com
         run: |
-          set -euo pipefail
+          # 1. We remove 'set -e' temporarily so the script keeps running even on failure
+          set -uo pipefail
           
           echo "Installing PostgreSQL client utilities..."
-          sudo apt-get update && sudo apt-get install -y postgresql-client
+          sudo apt-get update && sudo apt-get install -y postgresql-client > /dev/null
           
-          echo "Setting up secure deployment SSH identity keys..."
+          echo "=== START DIAGNOSTICS ==="
+          
+          echo "Diagnostic: Checking environment variable state..."
+          if [ -z "$BASTION_HOST" ]; then echo "❌ CRITICAL: BASTION_HOST (EC2_HOST) secret is empty!"; else echo "✅ BASTION_HOST is populated"; fi
+          if [ -z "$BASTION_KEY" ]; then echo "❌ CRITICAL: BASTION_KEY (SSH_KEY) secret is empty!"; else echo "✅ BASTION_KEY is populated"; fi
+          
+          echo "Diagnostic: Writing SSH key..."
           mkdir -p ~/.ssh
-          # Added double quotes around BASTION_KEY to prevent shell splitting on newlines
           echo "$BASTION_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H "$BASTION_HOST" >> ~/.ssh/known_hosts
-
-          echo "Opening background SSH tunnel to target RDS endpoint..."
-          # Cleaned up the connection string syntax
-          nohup ssh -i ~/.ssh/id_rsa -N -L 5433:$RDS_DNS:5432 $BASTION_USER@$BASTION_HOST &
-          TUNNEL_PID=$!
-          sleep 5
-
-          echo "Executing pre-flight health query check against tunnel loop..."
-          if PGPASSWORD="$PGPASSWORD" psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -c 'SELECT 1' >/dev/null; then
-            echo "Database layer connectivity verified successfully."
-          else
-            echo "Database connection failed over open tunnel link!"
-            kill $TUNNEL_PID || true
-            exit 1
-          fi
-
-          echo "Closing local transient test tunnel bridge..."
-          kill $TUNNEL_PID || true
+          KEY_LINES=$(wc -l < ~/.ssh/id_rsa)
+          echo "Lines written to id_rsa: $KEY_LINES"
           
+          chmod 600 ~/.ssh/id_rsa
+          echo "Exit code of chmod: $?"
+
+          echo "Diagnostic: Testing network connectivity to EC2 Host ($BASTION_HOST)..."
+          # Checks if port 22 is reachable within 5 seconds
+          nc -zv -w 5 "$BASTION_HOST" 22
+          echo "Exit code of netcat to EC2: $?"
+
+          echo "Diagnostic: Scanning host keys..."
+          ssh-keyscan -v -H "$BASTION_HOST" >> ~/.ssh/known_hosts
+          SCAN_EXIT=$?
+          echo "Exit code of ssh-keyscan: $SCAN_EXIT"
+          
+          echo "=== END DIAGNOSTICS ==="
+          
+          # Force a failure at the end so the deployment doesn't proceed with a broken setup
+          echo "Stopping build for debug evaluation. Review logs above."
+          exit 1
+
       - name: Configure SSH
         uses: appleboy/ssh-action@v1
         with:
