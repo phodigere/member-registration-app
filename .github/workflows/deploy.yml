@@ -30,6 +30,10 @@ jobs:
           ref: ${{ github.event.inputs.branch || github.ref }}
           fetch-depth: 0
 
+      - name: Get GitHub Runner Public IP
+        id: ip
+        run: echo "ipv4=$(curl -s https://api.ipify.org)" >> $GITHUB_OUTPUT
+
       - name: Verify PostgreSQL is reachable from runner
         env:
           PGHOST: ${{ secrets.PG_HOST }}
