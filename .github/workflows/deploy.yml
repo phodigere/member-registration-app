@@ -100,7 +100,10 @@ jobs:
           port: 22
           envs: 'APP_DIR,BRANCH,REPO_URL,PORT'
           script: |
-            sudo apt-get update && sudo apt-get install -y git
+            if ! command -v git >/dev/null 2>&1; then
+              echo "Git not found. Installing via DNF..."
+              sudo dnf install -y git
+            fi
           script_path: scripts/deploy.sh
         env:
           APP_DIR: ${{ secrets.EC2_APP_DIR }}
