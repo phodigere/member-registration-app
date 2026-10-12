@@ -175,7 +175,7 @@ jobs:
             set -euo pipefail
             cd "${APP_DIR:-$HOME/member-registration-app}"
             pm2 describe member-registration-app >/dev/null
-            curl -fsS --max-time 10 "http://127.0.0.1:${{ vars.APP_PORT || '3000' }}/health"
+            curl -fsS --max-time 10 "http://127.0.0.1:${{ vars.APP_PORT || '3000' }}/"
             echo
 
       - name: Summary
