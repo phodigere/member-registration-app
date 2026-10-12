@@ -123,7 +123,21 @@ jobs:
             chmod 600 "$TARGET_DIR/.env"
             echo "Production environment file created successfully."
 
-          script_path: scripts/deploy.sh
+            # 3. Dynamic Execution of Deployment Script with Verbose Log Trapping
+            echo "Executing remote deployment script rules..."
+            cd "$TARGET_DIR"
+            
+            # Run your existing deploy script, but capture stdout/stderr for debugging
+            bash scripts/deploy.sh 2>&1 || {
+              echo "❌ Deployment script failed execution."
+              echo "=== FORCED LOG TRACE ==="
+              # Try to manually call the script using direct node execution to bypass silent handlers
+              if [ -f "src/db/migrate.js" ]; then
+                echo "Attempting to extract the precise database error trace..."
+                node src/db/migrate.js || true
+              fi
+              exit 1
+            }
         env:
           APP_DIR: ${{ secrets.EC2_APP_DIR }}
           BRANCH: ${{ github.event.inputs.branch || 'main' }}
