@@ -32,7 +32,9 @@ jobs:
 
       - name: Get GitHub Runner Public IP
         id: ip
-        run: echo "ipv4=$(curl -s https://ipify.org)" >> GITHUB_OUTPUT
+        run: |
+          echo "ipv4=$(curl -s https://ipify.org)" >> $GITHUB_OUTPUT
+          echo $GITHUB_OUTPUT
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
