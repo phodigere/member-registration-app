@@ -104,6 +104,25 @@ jobs:
               echo "Git not found. Installing via DNF..."
               sudo dnf install -y git
             fi
+
+            # 2. Automated .env file configuration injector
+            TARGET_DIR="${APP_DIR:-$HOME/member-registration-app}"
+            echo "Pre-allocating system variables inside: $TARGET_DIR"
+            mkdir -p "$TARGET_DIR"
+            
+            cat << EOF > "$TARGET_DIR/.env"
+            PORT=$PORT
+            PGHOST=$PGHOST
+            PGPORT=$PGPORT
+            PGUSER=$PGUSER
+            PGPASSWORD=$PGPASSWORD
+            PGDATABASE=$PGDATABASE
+            SESSION_SECRET=$SESSION_SECRET
+            EOF
+
+            chmod 600 "$TARGET_DIR/.env"
+            echo "Production environment file created successfully."
+
           script_path: scripts/deploy.sh
         env:
           APP_DIR: ${{ secrets.EC2_APP_DIR }}
