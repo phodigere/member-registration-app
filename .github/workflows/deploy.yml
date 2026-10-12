@@ -108,7 +108,7 @@ jobs:
         env:
           APP_DIR: ${{ secrets.EC2_APP_DIR }}
           BRANCH: ${{ github.event.inputs.branch || 'main' }}
-          REPO_URL: ({{ github.server_url }}){{ github.repository }}.git
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}.git
           PORT: ${{ vars.APP_PORT || '3000' }}
 
       - name: Verify deployment
