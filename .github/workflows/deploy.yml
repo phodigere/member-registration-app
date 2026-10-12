@@ -98,7 +98,7 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           port: 22
-          envs: 'APP_DIR,BRANCH,REPO_URL,PORT'
+          envs: 'APP_DIR,BRANCH,REPO_URL,PORT,PGHOST,PGPORT,PGUSER,PGPASSWORD,PGDATABASE,SESSION_SECRET'
           script: |
             if ! command -v git >/dev/null 2>&1; then
               echo "Git not found. Installing via DNF..."
