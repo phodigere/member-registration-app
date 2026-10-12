@@ -99,6 +99,8 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: 22
           envs: 'APP_DIR,BRANCH,REPO_URL,PORT'
+          script: |
+            sudo apt-get update && sudo apt-get install -y git
           script_path: scripts/deploy.sh
         env:
           APP_DIR: ${{ secrets.EC2_APP_DIR }}
