@@ -111,14 +111,15 @@ jobs:
             mkdir -p "$TARGET_DIR"
             
             cat << EOF > "$TARGET_DIR/.env"
-            PORT=${{ vars.APP_PORT || '3000' }}
-            PGHOST=ekameva-database-0-instance-1.c10uiu8660i0.eu-north-1.rds.amazonaws.com
-            PGPORT=5432
-            PGUSER=${{ secrets.PG_USER }}
-            PGPASSWORD=${{ secrets.PG_PASSWORD }}
-            PGDATABASE=${{ secrets.PG_DATABASE }}
-            SESSION_SECRET=${{ secrets.SESSION_SECRET }}
+            PORT='${{ vars.APP_PORT || '3000' }}'
+            PGHOST='ekameva-database-0-instance-1.c10uiu8660i0.eu-north-1.rds.amazonaws.com'
+            PGPORT='5432'
+            PGUSER='${{ secrets.PG_USER }}'
+            PGPASSWORD='${{ secrets.PG_PASSWORD }}'
+            PGDATABASE='${{ secrets.PG_DATABASE }}'
+            SESSION_SECRET='${{ secrets.SESSION_SECRET }}'
             PGSSLMODE="require"
+            NODE_TLS_REJECT_UNAUTHORIZED='0'
             EOF
 
             chmod 600 "$TARGET_DIR/.env"
