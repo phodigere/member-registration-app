@@ -123,21 +123,34 @@ jobs:
             chmod 600 "$TARGET_DIR/.env"
             echo "Production environment file created successfully."
 
-            # 3. Dynamic Execution of Deployment Script with Verbose Log Trapping
+            # 3. Native Database Pre-Flight Check on RHEL
+            echo "Testing RHEL-to-RDS credential validation via native psql query..."
+            if ! command -v psql >/dev/null 2>&1; then
+              echo "Installing temporary client engine for logging..."
+              sudo dnf install -y postgresql
+            fi
+            
+            # This will force PostgreSQL to print the exact reason if authentication or DB naming is wrong
+            PGPASSWORD="$PGPASSWORD" psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -c 'SELECT 1;' || {
+              echo "❌ CRITICAL: The RHEL machine cannot authenticate with RDS using these credentials."
+              exit 1
+            }
+
+            # 4. Dynamic Execution of the Deployment Script file
             echo "Executing remote deployment script rules..."
             cd "$TARGET_DIR"
             
-            # Run your existing deploy script, but capture stdout/stderr for debugging
             bash scripts/deploy.sh 2>&1 || {
               echo "❌ Deployment script failed execution."
-              echo "=== FORCED LOG TRACE ==="
-              # Try to manually call the script using direct node execution to bypass silent handlers
+              echo "=== SYSTEM LOG FORCE-UNCAUGHT TRACE ==="
               if [ -f "src/db/migrate.js" ]; then
-                echo "Attempting to extract the precise database error trace..."
-                node src/db/migrate.js || true
+                echo "Bypassing app silent try/catch blocks using Node diagnostics..."
+                # Injects raw stack monitoring to dump error states to the terminal console stdout
+                NODE_OPTIONS="--trace-uncaught --trace-warnings" node src/db/migrate.js || true
               fi
               exit 1
             }
+
         env:
           APP_DIR: ${{ secrets.EC2_APP_DIR }}
           BRANCH: ${{ github.event.inputs.branch || 'main' }}
