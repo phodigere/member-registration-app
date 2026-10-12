@@ -111,13 +111,13 @@ jobs:
             mkdir -p "$TARGET_DIR"
             
             cat << EOF > "$TARGET_DIR/.env"
-            PORT=$port
-            PGHOST=$pghost
-            PGPORT=$pgport
-            PGUSER=$pguser
-            PGPASSWORD=$pgpassword
-            PGDATABASE=$pgdatabase
-            SESSION_SECRET=$session_secret
+            PORT=${{ vars.APP_PORT || '3000' }}
+            PGHOST=ekameva-database-0-instance-1.c10uiu8660i0.eu-north-1.rds.amazonaws.com
+            PGPORT=5432
+            PGUSER=${{ secrets.PG_USER }}
+            PGPASSWORD=${{ secrets.PG_PASSWORD }}
+            PGDATABASE=${{ secrets.PG_DATABASE }}
+            SESSION_SECRET=${{ secrets.SESSION_SECRET }}
             EOF
 
             chmod 600 "$TARGET_DIR/.env"
@@ -130,11 +130,16 @@ jobs:
               sudo dnf install -y postgresql
             fi
             
-            # This will force PostgreSQL to print the exact reason if authentication or DB naming is wrong
-            PGPASSWORD="$pgpassword" psql -h "$pghost" -p "$pgport" -U "$pguser" -d "$pgdatabase" -c 'SELECT 1;' || {
-              echo "❌ CRITICAL: The RHEL machine cannot authenticate with RDS using these credentials."
-              exit 1
-            }
+            # Pass the values directly to ensure psql targets the network stream instead of local sockets
+            PGPASSWORD="${{ secrets.PG_PASSWORD }}" psql \
+              -h "${{ secrets.PG_HOST }}" \
+              -p 5432 \
+              -U "${{ secrets.PG_USER }}" \
+              -d "${{ secrets.PG_DATABASE }}" \
+              -c 'SELECT 1;' || {
+                echo "❌ CRITICAL: The RHEL machine cannot authenticate with RDS using these credentials."
+                exit 1
+              }
 
             # 4. Dynamic Execution of the Deployment Script file
             echo "Executing remote deployment script rules..."
