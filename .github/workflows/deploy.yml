@@ -118,6 +118,7 @@ jobs:
             PGPASSWORD=${{ secrets.PG_PASSWORD }}
             PGDATABASE=${{ secrets.PG_DATABASE }}
             SESSION_SECRET=${{ secrets.SESSION_SECRET }}
+            PGSSLMODE="require"
             EOF
 
             chmod 600 "$TARGET_DIR/.env"
